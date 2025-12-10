@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <title>مساعد علّمني لمراجعة الحقائب التدريبية</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- مكتبة قراءة PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window["pdfjsLib"]) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+  </script>
+
+  <!-- مكتبة mammoth لتحويل DOCX إلى نص -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; padding: 0; background: #f3f4f6; color: #111827; }
+    .page { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    header { background: #111827; color: #f9fafb; padding: 18px 20px; border-radius: 16px; margin-bottom: 18px; }
+    header h1 { margin: 0 0 8px; font-size: 1.4rem; }
+    header p { margin: 0; font-size: 0.9rem; opacity: 0.9; }
+    .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: #ffffff; border-radius: 16px; padding: 16px 18px; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06); }
+    .card h2 { margin-top: 0; font-size: 1.1rem; margin-bottom: 10px; }
+    .card small { color: #6b7280; display: block; margin-bottom: 8px; font-size: 0.8rem; }
+    label { display: block; font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; color: #111827; }
+    input[type="text"], input[type="file"], textarea {
+      width: 100%; border-radius: 10px; border: 1px solid #d1d5db; padding: 8px 10px;
+      font-size: 0.9rem; resize: vertical; min-height: 40px; background: #f9fafb;
+    }
+    input[type="file"] { padding: 6px 10px; min-height: auto; }
+    textarea { min-height: 120px; line-height: 1.6; }
+    input[type="text"]:focus, textarea:focus {
+      outline: none; border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3); background: #ffffff;
+    }
+    .field { margin-bottom: 10px; }
+    .inline-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    @media (max-width: 700px) { .inline-row { grid-template-columns: 1fr; } }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    button {
+      border-radius: 999px; border: none; padding: 8px 16px; font-size: 0.9rem; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.15s ease;
+    }
+    .btn-primary { background: #2563eb; color: #f9fafb; box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35); }
+    .btn-primary:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 10px 22px rgba(37, 99, 235, 0.45); }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
+    .btn-secondary:hover { background: #d1d5db; transform: translateY(-1px); }
+    .hint { font-size: 0.78rem; color: #6b7280; margin-top: 3px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #e0f2fe; color: #0369a1; font-size: 0.75rem; margin-bottom: 4px; }
+    .output-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .output-header h2 { margin: 0; }
+    .small-pill { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; }
+    .footer-note { margin-top: 12px; font-size: 0.76rem; color: #6b7280; text-align: left; direction: ltr; }
+    #fileStatus { font-size: 0.8rem; color: #374151; margin-top: 4px; white-space: pre-line; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>مساعد علّمني لمراجعة وتقييم الحقائب التدريبية</h1>
+      <p>
+        ارفع ملف الحقيبة (PDF أو DOCX)، ثم اضغط
+        <strong>توليد التقرير عبر API</strong> لتحصل على تقرير التقييم الكامل.
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- بيانات البرنامج + رفع الملف -->
+      <section class="card">
+        <h2>بيانات البرنامج ومحتوى الحقيبة</h2>
+        <small>املأ الحقول التالية، ثم ارفع ملف الحقيبة.</small>
+
+        <div class="field inline-row">
+          <div>
+            <label for="programName">اسم البرنامج التدريبي</label>
+            <input id="programName" type="text" placeholder="مثال: بوصلة الموجِّه – علّمني" />
+          </div>
+          <div>
+            <label for="targetAudience">الفئة المستهدفة</label>
+            <input id="targetAudience" type="text" placeholder="مثال: موجّهو المواد – معلمون – قيادات..." />
+          </div>
+          <div>
+            <label for="duration">مدة البرنامج</label>
+            <input id="duration" type="text" placeholder="مثال: يومان – ١٢ ساعة تدريبية" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="mainTheme">المجال / الموضوع الرئيس</label>
+          <input id="mainTheme" type="text" placeholder="مثال: الإشراف التربوي الحديث – التغذية الراجعة البنّاءة..." />
+        </div>
+
+        <div class="field">
+          <label for="goals">وصف مختصر للبرنامج (اختياري)</label>
+          <textarea id="goals" placeholder="اكتب سطرين عن هدف البرنامج وسياقه إن أحببت..."></textarea>
+        </div>
+
+        <div class="field">
+          <span class="badge">رفع ملف الحقيبة</span>
+          <label for="fileInput">ملف الحقيبة (PDF أو DOCX)</label>
+          <input id="fileInput" type="file" accept=".pdf,.docx" />
+          <div id="fileStatus" class="hint">
+            لم يتم اختيار ملف بعد.
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="content">النص المستخرج من الحقيبة (يمكنك تعديله بعد التحويل)</label>
+          <textarea id="content" placeholder="بعد رفع الملف سيتم تحويله إلى نص ويظهر هنا."></textarea>
+          <div class="hint">
+            لو PDF عبارة عن صور فقط، التحويل مش هيشتغل 100٪، ووقتها تحتاج OCR خارجي.
+          </div>
+        </div>
+      </section>
+
+      <!-- معايير التقييم -->
+      <section class="card">
+        <h2>معايير التقييم</h2>
+        <small>يمكنك لصق المعايير التفصيلية اللي عندك هنا (الأهداف، المحتوى، الأنشطة، المادة، التقويم).</small>
+
+        <div class="field">
+          <label for="criteria">نص معايير التقييم</label>
+          <textarea id="criteria" style="min-height: 360px;">
+اكتب أو الصق هنا المجالات والمعايير والمؤشرات التي تريد أن يقيّم النموذج على أساسها الحقيبة التدريبية.
+مثال مختصر:
+- المجال الأول: الأهداف (وجود هدف عام، نواتج تعلم مصاغة جيدًا، متنوعة...).
+- المجال الثاني: المحتوى (ملاءمته للأهداف، للمتدربين، وحداثته...).
+- المجال الثالث: الأنشطة والأساليب والوسائل التدريبية.
+- المجال الرابع: المادة التدريبية (دليل مدرب، متدرب، مادة مرجعية، لغة، توثيق، إخراج...).
+- المجال الخامس: التقويم (مراحل التقييم، أدوات التقييم، الأساليب الإحصائية...).
+          </textarea>
+          <div class="hint">
+            يمكنك استبدال النص ده بالمعايير التفصيلية الكبيرة اللي أرسلتها لي قبل كده.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- الناتج -->
+    <section class="card" style="margin-top: 16px;">
+      <div class="output-header">
+        <h2>الناتج: تقرير التقييم / البرومبت</h2>
+        <span class="small-pill">يمكن نسخه أو حفظه كما تشاء</span>
+      </div>
+
+      <textarea id="output" style="min-height: 260px; margin-top: 8px;" placeholder="سيظهر هنا تقرير التقييم أو البرومبت المولد."></textarea>
+
+      <div class="btn-row">
+        <button class="btn-primary" onclick="callAI()">
+          🤖 توليد التقرير عبر API
+        </button>
+        <button class="btn-secondary" onclick="generatePromptOnly()">
+          📝 توليد البرومبت فقط (بدون اتصال)
+        </button>
+        <button class="btn-secondary" onclick="copyOutput()">
+          📋 نسخ النص
+        </button>
+        <button class="btn-secondary" onclick="clearAll()">
+          🧹 مسح كل الحقول
+        </button>
+      </div>
+
+      <div class="footer-note">
+        This page runs entirely in your browser and calls your own /api/review endpoint on the server.
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // 1) تحويل الملف إلى نص
+    document.getElementById("fileInput").addEventListener("change", handleFileSelect);
+
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      const statusEl = document.getElementById("fileStatus");
+      const contentEl = document.getElementById("content");
+
+      if (!file) {
+        statusEl.textContent = "لم يتم اختيار ملف.";
+        return;
+      }
+
+      const ext = file.name.split(".").pop().toLowerCase();
+      statusEl.textContent = "جاري قراءة الملف وتحويله إلى نص...";
+
+      try {
+        let text = "";
+        if (ext === "pdf") {
+          text = await extractPdfText(file);
+        } else if (ext === "docx") {
+          text = await extractDocxText(file);
+        } else {
+          statusEl.textContent = "نوع الملف غير مدعوم. استخدم PDF أو DOCX.";
+          return;
+        }
+
+        contentEl.value = text;
+        statusEl.textContent =
+          "تم تحويل الملف إلى نص ✅\nعدد الحروف التقريبي: " +
+          text.length.toLocaleString("en-US");
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent =
+          "حدث خطأ أثناء تحويل الملف إلى نص. تأكد أن الملف PDF نصي أو DOCX صالح.";
+      }
+    }
+
+    async function extractPdfText(file) {
+      if (!window["pdfjsLib"]) {
+        throw new Error("مكتبة pdf.js غير متاحة.");
+      }
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let allText = "";
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        const strings = content.items.map((item) => item.str);
+        allText += `\n\n----- صفحة ${pageNum} -----\n\n` + strings.join(" ");
+      }
+      return allText;
+    }
+
+    async function extractDocxText(file) {
+      if (!window["mammoth"]) {
+        throw new Error("مكتبة mammoth غير متاحة.");
+      }
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+      return result.value;
+    }
+
+    // 2) بناء البرومبت
+    function buildPrompt() {
+      const programName = document.getElementById("programName").value.trim() || "برنامج تدريبي";
+      const targetAudience = document.getElementById("targetAudience").value.trim() || "مجموعة من المتدربين";
+      const duration = document.getElementById("duration").value.trim() || "مدة محددة";
+      const mainTheme = document.getElementById("mainTheme").value.trim() || "مجال تربوي / تعليمي";
+      const goals = document.getElementById("goals").value.trim();
+      const content = document.getElementById("content").value.trim();
+      const criteria = document.getElementById("criteria").value.trim();
+
+      if (!content) {
+        alert("من فضلك ارفع ملف الحقيبة أو تأكد أن خانة النص المستخرج ليست فارغة.");
+        return null;
+      }
+
+      const introDescription = goals
+        ? `وصف مختصر يقدمه المصمم عن البرنامج:\n${goals}\n\n`
+        : "";
+
+      const prompt = `
+أنت خبير عربي في تصميم ومراجعة الحقائب التدريبية، وتعمل الآن كمراجع جودة لحقيبة تدريبية تابعة لمؤسسة "علّمني".
+المطلوب منك أن تقيّم الحقيبة تدريبية بدقة وفق المجالات والمعايير التفصيلية المرفقة أدناه، ثم تخرج بتقرير شامل يتضمن:
+- نقاط القوة في الحقيبة.
+- الفجوات والثغرات.
+- مقترحات عملية لتحسين الأهداف، المحتوى، الأنشطة، المادة التدريبية، والتقويم.
+
+أولًا: معلومات عن البرنامج التدريبي (للفهم السياقي):
+- اسم البرنامج: ${programName}
+- الفئة المستهدفة: ${targetAudience}
+- مدة البرنامج: ${duration}
+- المجال / الموضوع الرئيس: ${mainTheme}
+
+${introDescription}ثانيًا: نص الحقيبة التدريبية (الأهداف، المحتوى، الأنشطة، المادة التدريبية، أدوات التقييم...).
+قد يكون النص طويلًا، فركّز في تقييمك على مدى توافر المعايير وليس على إعادة نسخ كل النص:
+\"\"\" 
+${content}
+\"\"\" 
+
+ثالثًا: معايير التقييم التي يجب الالتزام بها (المجالات، المعايير، المؤشرات):
+
+\"\"\" 
+${criteria}
+\"\"\" 
+
+رابعًا: طريقة عملك المطلوبة:
+
+1) قدّم أولًا ملخصًا تنفيذيًا في فقرتين إلى ثلاث فقرات يوضح:
+   - نظرة عامة على جودة الحقيبة.
+   - أهم نقاط القوة.
+   - أهم الفجوات.
+
+2) بعد ذلك، قيّم الحقيبة وفق المجالات الخمسة (الأهداف – المحتوى – الأنشطة والأساليب والوسائل التدريبية – المادة التدريبية – التقويم) كما هي مذكورة في المعايير.
+
+3) في كل معيار:
+   - أعطِ درجة من 0 إلى 3 (0 = غير متحقق، 1 = ضعيف، 2 = متوسط، 3 = متحقق بدرجة عالية).
+   - فسّر سبب الدرجة في 2–4 أسطر مع الإشارة لنص من الحقيبة إن أمكن.
+   - اقترح تعديلًا أو إضافة عملية واضحة لتحسين هذا المعيار.
+
+4) في نهاية التقرير، قدّم:
+   - قائمة مرتّبة بأهم 5 أولويات لتحسين الحقيبة.
+   - أمثلة عملية لأنشطة أو أساليب تدريبية أو أدوات تقييم يمكن إضافتها أو تعديلها لتقوية الحقيبة.
+
+اكتب تقريرك كله باللغة العربية الفصحى البسيطة، وبأسلوب بنّاء يركّز على الحلول والتحسينات.
+      `.trim();
+
+      return prompt;
+    }
+
+    // زر: توليد البرومبت فقط
+    function generatePromptOnly() {
+      const prompt = buildPrompt();
+      if (!prompt) return;
+      const output = document.getElementById("output");
+      output.value =
+`----- البرومبت المولَّد -----
+
+${prompt}`;
+      output.scrollTop = 0;
+    }
+
+    // زر: استدعاء الـ API على الخادم
+    async function callAI() {
+      const prompt = buildPrompt();
+      if (!prompt) return;
+
+      const output = document.getElementById("output");
+      output.value = "جاري إرسال الطلب إلى الخادم وتوليد تقرير التقييم...\n";
+
+      try {
+        const response = await fetch("/api/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          output.value = "حدث خطأ من الخادم:\n" + errorText;
+          return;
+        }
+
+        const data = await response.json();
+        output.value = (data.result || JSON.stringify(data, null, 2)).trim();
+        output.scrollTop = 0;
+      } catch (err) {
+        console.error(err);
+        output.value = "تعذر الاتصال بالخادم. تأكد من الاتصال بالإنترنت أو إعداد الـ API.";
+      }
+    }
+
+    function copyOutput() {
+      const output = document.getElementById("output");
+      if (!output.value.trim()) {
+        alert("لا يوجد نص لنسخه.");
+        return;
+      }
+      output.select();
+      document.execCommand("copy");
+      alert("تم نسخ النص إلى الحافظة ✅");
+    }
+
+    function clearAll() {
+      if (!confirm("هل تريد مسح كل الحقول بما فيها نص الحقيبة والمخرجات؟")) return;
+      document.getElementById("programName").value = "";
+      document.getElementById("targetAudience").value = "";
+      document.getElementById("duration").value = "";
+      document.getElementById("mainTheme").value = "";
+      document.getElementById("goals").value = "";
+      document.getElementById("content").value = "";
+      document.getElementById("output").value = "";
+      document.getElementById("fileInput").value = "";
+      document.getElementById("fileStatus").textContent = "لم يتم اختيار ملف بعد.";
+    }
+  </script>
+</body>
+</html>
